@@ -1,0 +1,59 @@
+# Patched SadTalker requirements for Python 3.10 + PyTorch 2.12 + numpy 2.x on Apple Silicon.
+# Original pins (kept as comments) are too old for modern PyTorch / numpy 2.x.
+# We:
+#   * drop hard numpy/scipy pins (PyTorch 2.12 already pulled numpy>=2.x; everything must coexist).
+#   * loosen most other pins to "compatible with the latest minor releases".
+#   * keep yacs, joblib, kornia at the original pins where they still resolve cleanly.
+#
+# See ../PATCHES.md for the rationale of each change.
+
+# numpy is already installed by torch; we leave it unconstrained here.
+
+# face_alignment 1.3.5 hard-pins very old numpy. The current 1.4.x line works
+# with numpy 2.x.
+face_alignment
+
+# imageio 2.19.3 was pinned for a long-fixed regression. 2.34+ supports numpy 2.x.
+imageio
+imageio-ffmpeg
+
+# librosa 0.9.2 used `np.complex` (numpy 1.20 removed it). 0.10.x fixes this.
+librosa
+
+numba
+
+# resampy 0.3.1 is fine but pulls in old numba; let pip pick.
+resampy
+
+pydub
+
+# scipy 1.10.1 isn't on python 3.10 + numpy 2.x. Use whatever resolves.
+scipy
+
+# kornia 0.6.8 still works.
+kornia==0.6.8
+
+tqdm
+
+# yacs unchanged.
+yacs==0.1.8
+
+pyyaml
+joblib
+
+# scikit-image 0.19 doesn't support numpy 2.x. 0.24+ does.
+scikit-image
+
+# basicsr 1.4.2 imports torchvision.transforms.functional_tensor which was
+# removed in torchvision 0.17+.  We patch the source after install (see PATCHES.md).
+basicsr==1.4.2
+
+facexlib
+
+gradio
+
+gfpgan
+
+av
+
+safetensors
