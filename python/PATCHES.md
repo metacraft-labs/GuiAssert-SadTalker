@@ -90,12 +90,43 @@ installed `basicsr` package. This patch lives in the venv's site-packages,
 not in `upstream/` — it is reapplied automatically when the install script
 recreates the venv.
 
+The install script resolves the file path via `sysconfig.get_paths()['purelib']`
+rather than `importlib.util.find_spec('basicsr.data.degradations')`. `find_spec`
+would import `basicsr/__init__.py`, which itself eagerly imports the broken
+module and raises `ModuleNotFoundError` *before* the patch can run — so the
+sysconfig-based resolution is required for the install to be idempotent.
+
+### 8. `src/utils/videoio.py`
+
+`save_video_with_watermark` invokes a bare `ffmpeg` via `os.system`, picking up
+the first one on `PATH`. On Apple Silicon dev boxes a Nix-built `ffmpeg-full`
+binary can be selected while the inherited `DYLD_LIBRARY_PATH` still points at
+Homebrew's incompatible libavfilter, producing
+`Symbol not found: _av_buffer_replace` at launch. The fix swaps the bare
+`ffmpeg` token for `imageio_ffmpeg.get_ffmpeg_exe()` — a statically linked
+binary bundled with the venv's `imageio-ffmpeg` package, unaffected by host
+dynamic-linker state.
+
 ## Re-applying the patches
 
 If `python/upstream/` is wiped and re-cloned, the patches above must be
 reapplied. They're all small one-liners; the `gui-assert-sadtalker patch:`
 comments in the source make them locatable via `grep`. The basicsr
 site-package patch is also re-applied automatically by `scripts/install.sh`.
+
+## Dev-shell vs host Python (temporary)
+
+The repo's `flake.nix` requests `python310` from the workspace's transitive
+`nixpkgs` follow-chain. The currently pinned channel no longer exposes that
+attribute, so `nix develop` in this repo fails until the flake is repinned to
+a nixpkgs revision that still ships `python310` (or until the install is
+migrated to a newer Python version supported by the patched stack).
+
+As a short-term workaround the install runs against a host Python 3.10
+installation (Homebrew's `python@3.10` on macOS, or the distribution's
+`python3.10` on Linux); every other dependency is satisfied inside the
+local venv created by `scripts/install.sh`. Repin the flake before relying
+on `nix develop` for the install.
 
 ## Apple Silicon MPS performance
 

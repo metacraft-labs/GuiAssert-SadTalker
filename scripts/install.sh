@@ -98,8 +98,12 @@ apply_patch "$UPSTREAM_DIR/src/face3d/util/my_awing_arch.py" \
   "preds.astype(np.float, copy=False)" \
   "preds.astype(float, copy=False)"
 
-# (7) basicsr -> torchvision functional_tensor moved to functional
-BASICSR_DEG="$(python -c "import importlib.util as u; m=u.find_spec('basicsr.data.degradations'); print(m.origin if m else '')")"
+# (7) basicsr -> torchvision functional_tensor moved to functional.
+# We resolve the file by inspecting the venv's site-packages directly —
+# `importlib.util.find_spec('basicsr.data.degradations')` would import
+# `basicsr/__init__.py`, which itself eagerly imports the broken module
+# and raises ModuleNotFoundError before we get a chance to patch.
+BASICSR_DEG="$(python -c "import sysconfig, os, sys; sp = sysconfig.get_paths()['purelib']; p = os.path.join(sp, 'basicsr', 'data', 'degradations.py'); print(p if os.path.exists(p) else '')")"
 if [ -n "$BASICSR_DEG" ] && grep -q "functional_tensor" "$BASICSR_DEG"; then
   echo "  patching $BASICSR_DEG"
   python - "$BASICSR_DEG" <<'PY'
