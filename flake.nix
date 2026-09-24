@@ -4,6 +4,9 @@
   inputs = {
     nixos-modules.url = "github:metacraft-labs/devops-modules";
     nixpkgs.follows = "nixos-modules/nixpkgs-unstable";
+    # SadTalker's installer and wheel set require Python 3.10, which the
+    # shared unstable input no longer carries. flake.lock pins this channel.
+    python310-nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";
     flake-parts.follows = "nixos-modules/flake-parts";
   };
 
@@ -32,7 +35,7 @@
             # packages below cover the build/runtime toolchain that
             # `scripts/install.sh` and the plugin's Nim subprocess rely on.
             packages = with pkgs; [
-              python310
+              inputs.python310-nixpkgs.legacyPackages.${system}.python310
               nim
               nimble
               just
