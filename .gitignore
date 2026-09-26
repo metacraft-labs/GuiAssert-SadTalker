@@ -19,6 +19,7 @@ nimblecache/
 *.exe
 *.dSYM
 tests/tsadtalker
+tests/tnimcache_is_worktree_local
 
 # Editor / OS noise.
 .DS_Store
