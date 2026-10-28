@@ -19,7 +19,7 @@
 ## When compiled with `-d:sadtalkerLive` we end-to-end render a real
 ## talking head:
 ##
-##   nim c -d:sadtalkerLive --hints:off --path:src --path:../GuiAssert/src \
+##   nim c -d:sadtalkerLive --hints:off --path:src --path:../DemoVideoStudio/src --path:../GuiAssert/src \
 ##       tests/tsadtalker.nim
 ##
 ## Requirements:
@@ -39,7 +39,7 @@
 
 import std/[options, os, unittest]
 
-import gui_assert/talking_head
+import demo_video_studio/plugins/talking_head
 import gui_assert_sadtalker
 
 when defined(sadtalkerLive):

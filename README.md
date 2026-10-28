@@ -1,7 +1,9 @@
 # GuiAssert-SadTalker
 
+Implements the talking-head provider contract of [DemoVideoStudio](https://github.com/metacraft-labs/DemoVideoStudio), version 1 (`demo_video_studio/plugins/talking_head`), and runs its conformance kit in `just test` (`tests/tcontract.nim`). Build it next to DemoVideoStudio and GuiAssert checkouts (or set `DEMO_VIDEO_STUDIO_SRC` and `GUI_ASSERT_SRC`).
+
 SadTalker talking-head plugin for [GuiAssert]. Implements
-GuiAssert's `TalkingHeadProvider` contract by shelling out to a
+DemoVideoStudio's `TalkingHeadProvider` contract by shelling out to a
 local SadTalker install (a Python 3.10 venv + the OpenTalker/SadTalker
 repo at a pinned commit + ~2.4 GB of model weights).
 
@@ -47,7 +49,7 @@ steps and applies the patches incrementally.
 ## Wiring into a runner
 
 ```nim
-import gui_assert/talking_head
+import demo_video_studio/plugins/talking_head
 import gui_assert_sadtalker
 
 let reg = newRegistry()         # registry pre-populated with `stock_avatar`
@@ -65,20 +67,20 @@ generateTalkingHead(reg, "sadtalker", narrationWav, outputMp4, opts)
 Path discovery uses three environment variables (each with a sensible
 default):
 
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `GUI_ASSERT_SADTALKER_HOME` | this repo's root | Override the plugin install location. |
-| `GUI_ASSERT_SADTALKER_PYTHON` | `<home>/.venv/bin/python` | Override the Python interpreter. |
-| `GUI_ASSERT_SADTALKER_RENDER_SCRIPT` | `<home>/python/render_talking_head.py` | Override the wrapper script. |
+| Variable                             | Default                                | Purpose                               |
+| ------------------------------------ | -------------------------------------- | ------------------------------------- |
+| `GUI_ASSERT_SADTALKER_HOME`          | this repo's root                       | Override the plugin install location. |
+| `GUI_ASSERT_SADTALKER_PYTHON`        | `<home>/.venv/bin/python`              | Override the Python interpreter.      |
+| `GUI_ASSERT_SADTALKER_RENDER_SCRIPT` | `<home>/python/render_talking_head.py` | Override the wrapper script.          |
 
 ## Tests
 
 ```sh
 # Pure tests — always safe to run.
-nim c -r --hints:off --path:src --path:../GuiAssert/src tests/tsadtalker.nim
+nim c -r --hints:off --path:src --path:../DemoVideoStudio/src --path:../GuiAssert/src tests/tsadtalker.nim
 
 # Live end-to-end — requires the install to have completed.
-nim c -d:sadtalkerLive -r --hints:off --path:src --path:../GuiAssert/src tests/tsadtalker.nim
+nim c -d:sadtalkerLive -r --hints:off --path:src --path:../DemoVideoStudio/src --path:../GuiAssert/src tests/tsadtalker.nim
 ```
 
 The live test fails the run if SadTalker is not actually available —
