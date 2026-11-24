@@ -25,6 +25,7 @@ wheels. Install with:
     pip install -r python/requirements-patched.txt
 
 Notable resolutions chosen by pip with these unpins:
+
 - numpy 2.2.6
 - scipy 1.15.3
 - librosa 0.11.0
@@ -93,7 +94,7 @@ recreates the venv.
 The install script resolves the file path via `sysconfig.get_paths()['purelib']`
 rather than `importlib.util.find_spec('basicsr.data.degradations')`. `find_spec`
 would import `basicsr/__init__.py`, which itself eagerly imports the broken
-module and raises `ModuleNotFoundError` *before* the patch can run — so the
+module and raises `ModuleNotFoundError` _before_ the patch can run — so the
 sysconfig-based resolution is required for the install to be idempotent.
 
 ### 8. `src/utils/videoio.py`
