@@ -32,13 +32,15 @@ GuiAssert-SadTalker/
 │   ├── install.sh                     create .venv, clone upstream, apply patches, fetch weights
 │   └── verify-install.sh              smoke-test the install
 └── tests/
-    └── tsadtalker.nim                 pure tests + `-d:sadtalkerLive` gated live test
+    ├── tsadtalker.nim                 pure tests + `-d:sadtalkerLive` gated live test
+    ├── tcontract.nim                  DemoVideoStudio provider-contract kit
+    └── tdev_gates.nim                 the repository's own lint/hook/SDK gates
 ```
 
 ## Setup
 
 ```sh
-nix develop                  # python310 + nim + ffmpeg-full + cmake + pkg-config
+nix develop                  # or `direnv allow` once: .envrc is `use flake`
 ./scripts/install.sh         # ~5 min on a fresh checkout (~2.4 GB of weights)
 ./scripts/verify-install.sh  # quick smoke-test
 ```
@@ -86,6 +88,25 @@ nim c -d:sadtalkerLive -r --hints:off --path:src --path:../DemoVideoStudio/src -
 The live test fails the run if SadTalker is not actually available —
 it is not a graceful skip. CI that does not want to install SadTalker
 simply compiles without `-d:sadtalkerLive`.
+
+## Development gates
+
+| Recipe        | What it runs                                                                                                                               |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `just build`  | compiles the plugin module, debug and release                                                                                              |
+| `just test`   | the pure suites above, plus `tests/tdev_gates.nim`                                                                                         |
+| `just lint`   | `nim check` of the module and every test program, `nixfmt --check`, `shellcheck`, `ruff check`, `editorconfig-checker`, `prettier --check` |
+| `just format` | `nixfmt` and `prettier --write`                                                                                                            |
+
+`.pre-commit-config.yaml` carries the whole MCL standard hook set and a
+`just lint` hook; install it with `prek install --install-hooks` from the dev
+shell, which provides every tool the hooks call (including `uv`, without which
+prek cannot install hooks on NixOS).
+
+On Linux the dev shell prepends its own C++ runtime (`libstdc++.so.6`) to
+`LD_LIBRARY_PATH`. The PyTorch wheels `install.sh` puts in `.venv` load it
+through the dynamic loader, and NixOS has no ambient copy, so without it
+`import torch` fails.
 
 ## License
 

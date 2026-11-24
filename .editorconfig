@@ -1,0 +1,32 @@
+# EditorConfig: https://editorconfig.org
+# root = true so editorconfig-checker reads only this file, whatever
+# directory the checkout sits in.
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false
+indent_size = unset
+
+# Python: 4-space blocks, but PEP 8 continuation lines align with the column
+# after an opening bracket or inside a docstring; ruff owns that layout.
+[*.py]
+indent_size = unset
+
+# Nim aligns continuation lines with the column after an opening `(`, which
+# is rarely a multiple of two; leave the column math to the Nim style.
+[*.nim]
+indent_size = unset
+
+[Justfile]
+indent_size = 4
+
+[LICENSE]
+indent_size = unset

@@ -44,8 +44,31 @@
               ffmpeg-full
               pkg-config
               cmake
+              # The repository's own gates (`just lint`, `just format` and the
+              # committed `.pre-commit-config.yaml`). repo-requirements.md §4.1:
+              # the flake provides the tools, the committed config the rules.
+              # `uv` must be on PATH on NixOS, or prek downloads a generic-linux
+              # uv that cannot exec there and every hook fails to install.
+              nixfmt
+              shellcheck
+              ruff
+              prek
+              uv
+              editorconfig-checker
+              prettier
             ];
             shellHook = ''
+              ${pkgs.lib.optionalString pkgs.stdenv.isLinux ''
+                # The PyTorch wheels pip installs into .venv load libstdc++.so.6
+                # through the dynamic loader; their own DT_RPATH lists only
+                # $ORIGIN-relative wheel directories, and python's RUNPATH does
+                # not apply to them. NixOS has no ambient C++ runtime, so
+                # `import torch` fails without this.
+                # Prepend the SDK's own runtime and keep any inherited suffix.
+                export LD_LIBRARY_PATH="${
+                  pkgs.lib.makeLibraryPath [ pkgs.stdenv.cc.cc.lib ]
+                }''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+              ''}
               # SadTalker on Apple Silicon: PyTorch's MPS backend still
               # has gaps for some ops; this env var instructs PyTorch
               # to silently fall back to CPU for unsupported kernels.

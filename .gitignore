@@ -20,6 +20,8 @@ nimblecache/
 *.dSYM
 tests/tsadtalker
 tests/tnimcache_is_worktree_local
+tests/tcontract
+tests/tdev_gates
 
 # Editor / OS noise.
 .DS_Store
