@@ -35,6 +35,7 @@ test:
     nim c -r --hints:off {{ nim_paths }} tests/tsadtalker.nim
     nim c -r --hints:off {{ nim_paths }} tests/tcontract.nim
     nim c -r --hints:off tests/tdev_gates.nim
+    nim c -r --hints:off tests/twrapper.nim
 
 # End-to-end live test.  Requires a completed install (.venv + upstream
 # checkout + model weights) under this repo.

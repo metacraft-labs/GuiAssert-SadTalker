@@ -74,7 +74,8 @@ apply_patch() {
   local file="$1"
   local needle="$2"
   local replacement="$3"
-  if grep -q "$needle" "$file" 2>/dev/null; then
+  # -F: a needle is text, not a pattern (`t[0]` is not a bracket class)
+  if grep -qF "$needle" "$file" 2>/dev/null; then
     echo "  patching $file"
     python - "$file" "$needle" "$replacement" <<'PY'
 import sys, pathlib, re
@@ -93,10 +94,68 @@ apply_patch "$UPSTREAM_DIR/src/face3d/util/preprocess.py" \
   "np.VisibleDeprecationWarning" \
   "getattr(np, 'exceptions', np).VisibleDeprecationWarning"
 
+# (2) align_img: numpy 2 rejects an array of mixed shapes, and POS returns
+# t as a (2, 1) array and s as a 1-element array
+apply_patch "$UPSTREAM_DIR/src/face3d/util/preprocess.py" \
+  "trans_params = np.array([w0, h0, s, t[0], t[1]])" \
+  "trans_params = np.array([float(w0), float(h0), float(np.ravel(s)[0]), float(np.ravel(t)[0]), float(np.ravel(t)[1])])"
+
 # (3) np.float removed in numpy 1.20+
 apply_patch "$UPSTREAM_DIR/src/face3d/util/my_awing_arch.py" \
   "preds.astype(np.float, copy=False)" \
   "preds.astype(float, copy=False)"
+
+# (4) util.py: `.type('torch.mps.FloatTensor')` is refused on MPS; a helper
+# moves to the type's device and dtype instead, `.type()` everywhere else
+# (each needle is gone once patched, so a second run changes nothing)
+apply_patch "$UPSTREAM_DIR/src/facerender/modules/util.py" \
+  "import torch.nn.utils.spectral_norm as spectral_norm
+
+
+def kp2gaussian(" \
+  "import torch.nn.utils.spectral_norm as spectral_norm
+
+
+def _coerce_type(t, type):
+    if isinstance(type, str) and '.mps.' in type:
+        return t.to(dtype=torch.float32, device='mps')
+    return t.type(type)
+
+
+def kp2gaussian("
+for pair in x:w y:h z:d; do
+  apply_patch "$UPSTREAM_DIR/src/facerender/modules/util.py" \
+    "${pair%:*} = torch.arange(${pair#*:}).type(type)" \
+    "${pair%:*} = _coerce_type(torch.arange(${pair#*:}), type)"
+done
+
+# (5) dense_motion.py: the same, for the heatmap's zeros
+apply_patch "$UPSTREAM_DIR/src/facerender/modules/dense_motion.py" \
+  "spatial_size[2]).type(heatmap.type())" \
+  "spatial_size[2]).to(heatmap)"
+
+# (6) inference.py: SADTALKER_DEVICE_OVERRIDE names the device (the wrapper
+# sets it for mps); without it upstream knows only cuda and cpu
+apply_patch "$UPSTREAM_DIR/inference.py" \
+  '    if torch.cuda.is_available() and not args.cpu:
+        args.device = "cuda"' \
+  '    if os.environ.get("SADTALKER_DEVICE_OVERRIDE") and not args.cpu:
+        args.device = os.environ["SADTALKER_DEVICE_OVERRIDE"]
+    elif torch.cuda.is_available() and not args.cpu:
+        args.device = "cuda"'
+
+# (8) videoio.py: the venv's own static ffmpeg, not the first on PATH
+apply_patch "$UPSTREAM_DIR/src/utils/videoio.py" \
+  "cmd = r'ffmpeg -y" \
+  "cmd = imageio_ffmpeg.get_ffmpeg_exe() + r' -y"
+apply_patch "$UPSTREAM_DIR/src/utils/videoio.py" \
+  "import cv2
+
+def load_video_to_cv2(" \
+  "import cv2
+import imageio_ffmpeg
+
+def load_video_to_cv2("
 
 # (7) basicsr -> torchvision functional_tensor moved to functional.
 # We resolve the file by inspecting the venv's site-packages directly —

@@ -12,7 +12,7 @@ Usage:
         --audio /path/to/narration.wav \
         --source-image /path/to/portrait.png \
         --output /path/to/talking_head.mp4 \
-        [--device mps|cpu|auto] [--still-mode] [--preprocess full|resize|crop]
+        [--device mps|cpu|cuda|auto] [--still-mode] [--preprocess full|resize|crop]
 
 Design choices:
   * The produced MP4 INCLUDES the narration audio track muxed in.
@@ -44,9 +44,13 @@ def resolve_device(requested: str) -> str:
         return "cpu"
     if requested in ("mps",):
         return "mps"
+    if requested in ("cuda",):
+        return "cuda"
     # auto
     try:
         import torch  # local import — keeps the script importable for --help
+        if torch.cuda.is_available():
+            return "cuda"
         if torch.backends.mps.is_available():
             return "mps"
     except Exception:
@@ -59,7 +63,7 @@ def main() -> int:
     parser.add_argument("--audio", required=True, help="Narration WAV path")
     parser.add_argument("--source-image", required=True, help="Portrait PNG/JPG")
     parser.add_argument("--output", required=True, help="Destination MP4 path")
-    parser.add_argument("--device", default="auto", choices=["auto", "mps", "cpu"])
+    parser.add_argument("--device", default="auto", choices=["auto", "mps", "cpu", "cuda"])
     parser.add_argument("--still-mode", action="store_true",
                         help="Reduce head motion — useful for small portraits.")
     parser.add_argument(
