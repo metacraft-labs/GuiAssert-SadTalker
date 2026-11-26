@@ -8,11 +8,48 @@ applied so the install can be reproduced.
 
 ## Why we patched instead of pinning to legacy versions
 
-We use PyTorch 2.12 (the current stable) so MPS-backed GPU inference works on
-Apple Silicon. PyTorch 2.x ships numpy 2.x by default. Numpy 2 removed
+We use a modern PyTorch 2.x (pinned below) so MPS-backed GPU inference works
+on Apple Silicon and CUDA inference on Linux. PyTorch 2.x ships numpy 2.x by
+default. Numpy 2 removed
 several deprecated aliases (`np.float`, `np.VisibleDeprecationWarning` at
 module root, etc.) that SadTalker's source still uses, and torchvision 0.17+
 moved `functional_tensor` into `functional`.
+
+## The PyTorch pin
+
+`scripts/install.sh` installs the torch family from a hash-pinned,
+per-platform requirement file, with `pip install --require-hashes -r`:
+
+| File                            | Platform              | Wheels                                    |
+| ------------------------------- | --------------------- | ----------------------------------------- |
+| `python/torch-linux-x86_64.txt` | Linux x86_64, CPython 3.10  | CUDA 12.6, `download.pytorch.org/whl/cu126` |
+| `python/torch-macos-arm64.txt`  | macOS arm64, CPython 3.10   | CPU/MPS, `download.pytorch.org/whl/cpu`     |
+
+Both pin **torch 2.11.0, torchvision 0.26.0, torchaudio 2.11.0**, a matched
+release set, together with every package that set depends on. Each torch-family
+entry names its wheel URL and carries that wheel's sha256 as the index publishes
+it. `scripts/lock-torch.sh` regenerates both files (uv resolves them; the
+versions live at its top), `tests/ttorch_pins.nim` refuses an unpinned, unhashed
+or unmatched set, and `scripts/verify-install.sh` fails when the venv holds any
+other version. `requirements-patched.txt` is installed with the pins as
+constraints, so it cannot move them.
+
+Why 2.11.0:
+
+- It is the newest set whose three members are a matched release. torchaudio's
+  last release on download.pytorch.org is 2.11.0; the newer torch 2.12 to 2.14
+  have no torchaudio of their own. An unpinned install on 2026-11-25 resolved
+  torch 2.14.1, torchvision 0.29.2 and torchaudio 2.11.1, which is not a set.
+- The source patches here target numpy 2 (the pin resolves numpy 2.2.6). The
+  MuseTalk plugin's torch 2.2.2 wheels are built against numpy 1.x and do not
+  import alongside numpy 2, so matching MuseTalk would mean pinning numpy
+  below 2 and revisiting those patches.
+- cu126: it is the oldest CUDA line download.pytorch.org builds 2.11.0 for
+  (also cu128, cu129), so it asks the least of the host driver, and it
+  covers the Ampere (RTX 3090) GPUs the plugin renders on.
+
+PyTorch is not in the flake's dev shell, which provides Python 3.10 and the
+toolchain; the venv holds torch, so the pin lives here and not in Nix.
 
 ## requirements-patched.txt
 
@@ -32,7 +69,9 @@ Notable resolutions chosen by pip with these unpins:
 - face_alignment 1.5.0
 - imageio 2.37.3
 - scikit-image 0.25.2
-- torch 2.12.0, torchvision 0.27.0, torchaudio 2.11.0
+- torch, torchvision and torchaudio come from the pin above (these notes
+  were first measured on macOS with torch 2.12.0, torchvision 0.27.0 and
+  torchaudio 2.11.0, unpinned)
 
 `kornia==0.6.8` is kept at its original pin (works with PyTorch 2.x).
 `basicsr==1.4.2` is kept at its pinned version — see the source patch below.

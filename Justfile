@@ -36,6 +36,7 @@ test:
     nim c -r --hints:off {{ nim_paths }} tests/tcontract.nim
     nim c -r --hints:off tests/tdev_gates.nim
     nim c -r --hints:off tests/twrapper.nim
+    nim c -r --hints:off tests/ttorch_pins.nim
 
 # End-to-end live test.  Requires a completed install (.venv + upstream
 # checkout + model weights) under this repo.
@@ -64,12 +65,13 @@ lint-nim:
     nim check --hints:off {{ nim_paths }} tests/tcontract.nim
     nim check --hints:off --path:src tests/tnimcache_is_worktree_local.nim
     nim check --hints:off tests/tdev_gates.nim
+    nim check --hints:off tests/ttorch_pins.nim
 
 lint-nix:
     nixfmt --check flake.nix
 
 lint-shell:
-    shellcheck scripts/install.sh scripts/verify-install.sh
+    shellcheck scripts/install.sh scripts/verify-install.sh scripts/lock-torch.sh
 
 lint-python:
     ruff check --no-cache python/render_talking_head.py

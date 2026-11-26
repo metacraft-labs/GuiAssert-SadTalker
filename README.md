@@ -24,13 +24,16 @@ GuiAssert-SadTalker/
 │   └── gui_assert_sadtalker.nim       plugin implementation (TalkingHeadProvider)
 ├── python/
 │   ├── render_talking_head.py         SadTalker CLI wrapper
-│   ├── requirements-patched.txt       deps relaxed for Python 3.10 + numpy 2.x + PyTorch 2.12
+│   ├── requirements-patched.txt       deps relaxed for Python 3.10 + numpy 2.x + PyTorch 2.11
+│   ├── torch-linux-x86_64.txt         hash-pinned PyTorch set, CUDA 12.6 (scripts/lock-torch.sh)
+│   ├── torch-macos-arm64.txt          hash-pinned PyTorch set, CPU/MPS
 │   ├── PATCHES.md                     patch manifest applied to the upstream checkout
 │   ├── COMMIT.txt                     pinned upstream SHA
 │   └── upstream/                      (gitignored) SadTalker clone — populated by install.sh
 ├── scripts/
 │   ├── install.sh                     create .venv, clone upstream, apply patches, fetch weights
-│   └── verify-install.sh              smoke-test the install
+│   ├── verify-install.sh              smoke-test the install, versions against the pins
+│   └── lock-torch.sh                  regenerate the hash-pinned PyTorch requirement files
 └── tests/
     ├── tsadtalker.nim                 pure tests + `-d:sadtalkerLive` gated live test
     ├── tcontract.nim                  DemoVideoStudio provider-contract kit

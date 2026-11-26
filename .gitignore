@@ -22,6 +22,8 @@ tests/tsadtalker
 tests/tnimcache_is_worktree_local
 tests/tcontract
 tests/tdev_gates
+tests/twrapper
+tests/ttorch_pins
 
 # Editor / OS noise.
 .DS_Store
