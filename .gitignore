@@ -10,6 +10,9 @@
 *.tar
 *.zip
 
+# Python bytecode.
+__pycache__/
+
 # Nim build artefacts.
 nimcache/
 # Per-checkout nimcache (config.nims): every Nim compile in this checkout
@@ -24,6 +27,7 @@ tests/tcontract
 tests/tdev_gates
 tests/twrapper
 tests/ttorch_pins
+tests/tsadtalker_live
 
 # Editor / OS noise.
 .DS_Store
