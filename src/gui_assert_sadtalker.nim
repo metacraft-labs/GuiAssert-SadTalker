@@ -25,8 +25,18 @@
 ## folder.  The `GUI_ASSERT_SADTALKER_HOME` environment variable lets
 ## a user pin a non-standard layout (for example a Nix flake build
 ## that places the plugin elsewhere on disk).
+##
+## ## Shared libraries on NixOS
+##
+## The venv's manylinux wheels (numpy, opencv-python, torch) load
+## `libz.so.1`, `libxcb.so.1`, `libstdc++.so.6` and friends from the
+## host's `/usr/lib`, which NixOS does not have. On Linux,
+## `scripts/install.sh` records a library path built from the flake's
+## pinned inputs in `<venv>/library-path` (a GC root). The provider
+## prepends that path to the child's `LD_LIBRARY_PATH` before it starts
+## Python, so a render works from any caller, inside the dev shell or not.
 
-import std/[json, options, os, osproc, streams, strformat, strutils, times]
+import std/[json, options, os, osproc, streams, strformat, strtabs, strutils, times]
 
 import demo_video_studio/plugins/talking_head
 
@@ -37,6 +47,8 @@ const
   PluginRootEnvVar* = "GUI_ASSERT_SADTALKER_HOME"
   PythonOverrideEnvVar* = "GUI_ASSERT_SADTALKER_PYTHON"
   ScriptOverrideEnvVar* = "GUI_ASSERT_SADTALKER_RENDER_SCRIPT"
+  LibraryPathFileName* = "library-path"
+    ## In the venv's root, next to `bin/`; written by `scripts/install.sh`.
 
 proc pluginRoot*(): string =
   ## Returns the on-disk location of the GuiAssert-SadTalker checkout.
@@ -66,6 +78,26 @@ proc resolvedRenderScript*(): string =
   if env.len > 0:
     return env
   result = pluginRoot() / DefaultRenderScriptRelPath
+
+proc venvLibraryPath*(py: string): string =
+  ## The library path recorded for the venv `py` belongs to
+  ## (`<venv>/library-path`, for `<venv>/bin/python`), or "" when the
+  ## install recorded none (macOS, or a venv made without install.sh).
+  let f = py.parentDir().parentDir() / LibraryPathFileName
+  if fileExists(f):
+    result = readFile(f).strip()
+
+proc childEnv*(py: string): StringTableRef =
+  ## The environment the wrapper runs in: this process's own, with the
+  ## venv's recorded library path in front of `LD_LIBRARY_PATH`.
+  result = newStringTable(modeCaseSensitive)
+  for k, v in envPairs():
+    result[k] = v
+  let libs = venvLibraryPath(py)
+  if libs.len > 0:
+    let inherited = result.getOrDefault("LD_LIBRARY_PATH")
+    result["LD_LIBRARY_PATH"] =
+      if inherited.len > 0: libs & ":" & inherited else: libs
 
 proc sadtalkerIsAvailable*(): bool {.gcsafe.} =
   ## True iff the Python interpreter and wrapper script both exist on
@@ -105,6 +137,7 @@ proc runSadTalker(py, script, narrationWav, outputMp4, device, logPath: string,
     let p = startProcess(
       command = py,
       args = argv,
+      env = childEnv(py),
       options = {poStdErrToStdOut}
     )
     try:

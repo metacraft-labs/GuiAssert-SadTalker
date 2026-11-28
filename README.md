@@ -106,10 +106,16 @@ simply compiles without `-d:sadtalkerLive`.
 shell, which provides every tool the hooks call (including `uv`, without which
 prek cannot install hooks on NixOS).
 
-On Linux the dev shell prepends its own C++ runtime (`libstdc++.so.6`) to
-`LD_LIBRARY_PATH`. The PyTorch wheels `install.sh` puts in `.venv` load it
-through the dynamic loader, and NixOS has no ambient copy, so without it
-`import torch` fails.
+On Linux the venv's manylinux wheels load libraries that NixOS has no
+`/usr/lib` for: `libstdc++.so.6` (torch), `libz.so.1` (numpy, pillow,
+scipy) and `libGL.so.1`, glib, `libxcb.so.1` and a few X libraries (opencv's
+`cv2`, which basicsr imports). The flake pins them
+(`runtimeLibs` in `flake.nix`), and the dev shell prepends them to
+`LD_LIBRARY_PATH`. `install.sh` also roots the same path at
+`.venv/library-path`. The provider puts that path in front of
+`LD_LIBRARY_PATH` before it starts the venv's Python, and so does
+`verify-install.sh`, so a render works from a caller outside the dev shell
+too. Neither takes these libraries from the host profile.
 
 ## License
 

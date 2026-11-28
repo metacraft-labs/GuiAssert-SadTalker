@@ -12,7 +12,10 @@
 ##     reports membership, `getProvider` returns the registered
 ##     value),
 ##   * the `generate` proc rejects requests with no `avatarImagePath`
-##     before spawning Python.
+##     before spawning Python,
+##   * the wrapper's environment carries the venv's recorded library path
+##     in front of `LD_LIBRARY_PATH`, and is the caller's own when the
+##     venv recorded none (a scratch venv layout under tmp, no Python run).
 ##
 ## ## Live test (compile-time-gated)
 ##
@@ -28,6 +31,10 @@
 ##   * an avatar fixture — `$GUI_ASSERT_SADTALKER_TEST_AVATAR` points
 ##     at a portrait PNG; with no override the test falls back to
 ##     SadTalker's bundled `python/upstream/examples/source_image/`,
+##   * the venv's Python, started with the provider's own environment
+##     (`childEnv`), imports what a render imports (numpy, cv2, basicsr,
+##     facexlib, gfpgan, torch): run this one outside the dev shell to
+##     check the recorded library path, not the shell's, supplies them,
 ##   * a narration WAV — `$GUI_ASSERT_SADTALKER_TEST_WAV` points at a
 ##     WAV; with no override the test falls back to SadTalker's
 ##     bundled `driven_audio/RD_Radio31_000.wav`.
@@ -37,7 +44,7 @@
 ## that does not have SadTalker installed simply does not pass
 ## `-d:sadtalkerLive`.
 
-import std/[options, os, unittest]
+import std/[options, os, strtabs, unittest]
 
 import demo_video_studio/plugins/talking_head
 import gui_assert_sadtalker
@@ -158,6 +165,40 @@ suite "sadtalker generate input validation":
     finally:
       delEnv(PluginRootEnvVar)
 
+suite "sadtalker child environment":
+
+  proc scratchVenv(name: string): string =
+    result = getTempDir() / ("tsadtalker_env_" & name & "_" & $getCurrentProcessId())
+    if dirExists(result): removeDir(result)
+    createDir(result / "bin")
+    writeFile(result / "bin" / "python", "")
+
+  test "with no recorded library path, LD_LIBRARY_PATH is the caller's":
+    let venv = scratchVenv("none")
+    defer: removeDir(venv)
+    check venvLibraryPath(venv / "bin" / "python") == ""
+    check childEnv(venv / "bin" / "python").getOrDefault("LD_LIBRARY_PATH") ==
+      getEnv("LD_LIBRARY_PATH")
+
+  test "the recorded library path goes in front of the caller's":
+    let venv = scratchVenv("rec")
+    defer: removeDir(venv)
+    writeFile(venv / LibraryPathFileName, "/nix/store/a-zlib/lib:/nix/store/b-libxcb/lib\n")
+    let py = venv / "bin" / "python"
+    check venvLibraryPath(py) == "/nix/store/a-zlib/lib:/nix/store/b-libxcb/lib"
+    let saved = getEnv("LD_LIBRARY_PATH")
+    defer: putEnv("LD_LIBRARY_PATH", saved)
+    putEnv("LD_LIBRARY_PATH", "/inherited/lib")
+    check childEnv(py)["LD_LIBRARY_PATH"] ==
+      "/nix/store/a-zlib/lib:/nix/store/b-libxcb/lib:/inherited/lib"
+    delEnv("LD_LIBRARY_PATH")
+    check childEnv(py)["LD_LIBRARY_PATH"] ==
+      "/nix/store/a-zlib/lib:/nix/store/b-libxcb/lib"
+    # Everything else is passed through.
+    putEnv("TSADTALKER_PROBE", "kept")
+    defer: delEnv("TSADTALKER_PROBE")
+    check childEnv(py)["TSADTALKER_PROBE"] == "kept"
+
 # ---------------------------------------------------------------------------
 # Live test — compile-time-gated.
 # ---------------------------------------------------------------------------
@@ -182,6 +223,23 @@ when defined(sadtalkerLive):
     p.close()
     doAssert code == 0, "ffprobe failed (" & $code & "): " & raw
     parseJson(raw)
+
+  suite "sadtalker live venv imports":
+
+    test "the venv imports what a render imports, in the provider's environment":
+      let py = resolvedPython()
+      doAssert fileExists(py), "no venv python at " & py & " (run scripts/install.sh)"
+      when defined(linux):
+        doAssert venvLibraryPath(py).len > 0,
+          "install.sh recorded no library path next to " & py
+      for module in ["numpy", "cv2", "basicsr, facexlib, gfpgan", "torch"]:
+        let p = startProcess(py, args = @["-c", "import " & module],
+                             env = childEnv(py), options = {poStdErrToStdOut})
+        let output = p.outputStream.readAll()
+        let code = p.waitForExit()
+        p.close()
+        checkpoint "import " & module & ": " & output.strip
+        check code == 0
 
   suite "sadtalker live talking-head render":
 

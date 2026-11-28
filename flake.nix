@@ -26,6 +26,32 @@
       ];
       perSystem =
         { pkgs, system, ... }:
+        let
+          # The shared libraries the venv's manylinux wheels expect from a
+          # host /usr/lib that NixOS does not have (from `ldd` over the venv,
+          # 2026-11-27): libstdc++ (torch); libz (numpy's _multiarray_umath,
+          # pillow, scipy, PyAV, llvmlite); and for opencv-python's cv2,
+          # libGL, glib's libglib and libgthread, and libxcb, plus libX11,
+          # libXext, libSM and libICE for its bundled Qt platform plugin.
+          # Pinned by flake.lock, never taken from the host profile.
+          runtimeLibs = pkgs.lib.optionals pkgs.stdenv.isLinux [
+            pkgs.stdenv.cc.cc.lib
+            pkgs.zlib
+            pkgs.libGL
+            pkgs.glib
+            pkgs.libxcb
+            pkgs.libx11
+            pkgs.libxext
+            pkgs.libsm
+            pkgs.libice
+          ];
+          libraryPath = pkgs.lib.makeLibraryPath runtimeLibs;
+          # The same path as a store file: scripts/install.sh roots it at
+          # .venv/library-path, and the provider prepends its contents to
+          # LD_LIBRARY_PATH before it starts the venv's Python, so a render
+          # outside this shell finds the same libraries.
+          libraryPathFile = pkgs.writeText "gui-assert-sadtalker-library-path" libraryPath;
+        in
         {
           devShells.default = pkgs.mkShell {
             # PyTorch is intentionally NOT in this list — its wheel ecosystem
@@ -59,15 +85,17 @@
             ];
             shellHook = ''
               ${pkgs.lib.optionalString pkgs.stdenv.isLinux ''
-                # The PyTorch wheels pip installs into .venv load libstdc++.so.6
-                # through the dynamic loader; their own DT_RPATH lists only
+                # The PyTorch, numpy and opencv wheels pip installs into .venv
+                # load libstdc++.so.6, libz.so.1, libGL.so.1, libxcb.so.1 and
+                # more (runtimeLibs above) through the dynamic loader; their own DT_RPATH lists only
                 # $ORIGIN-relative wheel directories, and python's RUNPATH does
-                # not apply to them. NixOS has no ambient C++ runtime, so
-                # `import torch` fails without this.
-                # Prepend the SDK's own runtime and keep any inherited suffix.
-                export LD_LIBRARY_PATH="${
-                  pkgs.lib.makeLibraryPath [ pkgs.stdenv.cc.cc.lib ]
-                }''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+                # not apply to them. NixOS has none of these ambiently, so
+                # `import torch`, `import numpy` and `import cv2` fail without
+                # this. Prepend the pinned set and keep any inherited suffix.
+                export LD_LIBRARY_PATH="${libraryPath}''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+                # scripts/install.sh records this file in the venv (see
+                # runtimeLibs above).
+                export GUI_ASSERT_SADTALKER_LIBRARY_PATH_FILE="${libraryPathFile}"
               ''}
               # SadTalker on Apple Silicon: PyTorch's MPS backend still
               # has gaps for some ops; this env var instructs PyTorch

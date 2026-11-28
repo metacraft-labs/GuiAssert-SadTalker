@@ -2,7 +2,8 @@
 # Install / refresh the SadTalker plugin.
 #
 # Steps (each idempotent — re-running the script is safe):
-#   1. create a Python 3.10 venv under .venv/ if missing,
+#   1. create a Python 3.10 venv under .venv/ if missing, and on Linux
+#      root the dev shell's pinned library path at .venv/library-path,
 #   2. install the hash-pinned PyTorch set (python/torch-<platform>.txt),
 #      then python/requirements-patched.txt,
 #   3. clone SadTalker upstream at the pinned commit from
@@ -34,6 +35,24 @@ fi
 if [ ! -d .venv ]; then
   echo "[install] creating Python venv under .venv/ ..."
   "$PY" -m venv .venv
+fi
+
+# On Linux, root the dev shell's pinned library path in the venv. The
+# venv's manylinux wheels need libraries NixOS has no /usr/lib for; the
+# provider and verify-install.sh put .venv/library-path's contents in front
+# of LD_LIBRARY_PATH before they start Python, so a render outside the dev
+# shell finds the same libraries. The link is a GC root: the libraries stay
+# while the venv does.
+if [ "$(uname -s)" = Linux ]; then
+  LIBS_FILE="${GUI_ASSERT_SADTALKER_LIBRARY_PATH_FILE:-}"
+  if [ -z "$LIBS_FILE" ] || [ ! -f "$LIBS_FILE" ]; then
+    echo "ERROR: GUI_ASSERT_SADTALKER_LIBRARY_PATH_FILE is not set. Run from" >&2
+    echo "  inside the dev shell: nix develop" >&2
+    exit 1
+  fi
+  rm -f .venv/library-path
+  nix-store --realise "$LIBS_FILE" --add-root .venv/library-path > /dev/null
+  echo "[install] library path: $(cat .venv/library-path)"
 fi
 
 # shellcheck disable=SC1091
