@@ -20,10 +20,10 @@ moved `functional_tensor` into `functional`.
 `scripts/install.sh` installs the torch family from a hash-pinned,
 per-platform requirement file, with `pip install --require-hashes -r`:
 
-| File                            | Platform              | Wheels                                    |
-| ------------------------------- | --------------------- | ----------------------------------------- |
-| `python/torch-linux-x86_64.txt` | Linux x86_64, CPython 3.10  | CUDA 12.6, `download.pytorch.org/whl/cu126` |
-| `python/torch-macos-arm64.txt`  | macOS arm64, CPython 3.10   | CPU/MPS, `download.pytorch.org/whl/cpu`     |
+| File                            | Platform                   | Wheels                                      |
+| ------------------------------- | -------------------------- | ------------------------------------------- |
+| `python/torch-linux-x86_64.txt` | Linux x86_64, CPython 3.10 | CUDA 12.6, `download.pytorch.org/whl/cu126` |
+| `python/torch-macos-arm64.txt`  | macOS arm64, CPython 3.10  | CPU/MPS, `download.pytorch.org/whl/cpu`     |
 
 Both pin **torch 2.11.0, torchvision 0.26.0, torchaudio 2.11.0**, a matched
 release set, together with every package that set depends on. Each torch-family
